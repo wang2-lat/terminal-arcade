@@ -1,6 +1,10 @@
 # Terminal Arcade 🕹️
 
-**15 stunning terminal applications** — games, visualizations, and tools, all in pure Python with zero external dependencies (except Pillow for ASCII art).
+**18 stunning terminal applications** — games, visualizations, and tools, all in pure Python with zero external dependencies (except Pillow for ASCII art).
+
+```
+pip install terminal-arcade
+```
 
 Every app runs entirely in your terminal using `curses`. No GUI, no browser, just beautiful ASCII.
 
@@ -13,6 +17,9 @@ Every app runs entirely in your terminal using `curses`. No GUI, no browser, jus
 | **Space Shooter** | `space-shooter` | Arcade shooter with combos, power-ups, and boss battles |
 | **Blackjack** | `blackjack` | 21-point card game with ASCII cards and chip betting system |
 | **Typing Test** | `typing-test` | WPM speed test with accuracy tracking and persistent leaderboard |
+| **2048** | `game2048` | Classic number-merging puzzle with colorful tiles and high score tracking |
+| **Minesweeper** | `minesweeper` | Full minesweeper with 3 difficulties, flagging, and chord reveal |
+| **Cat Pet** | `catpet` | Adorable ASCII cat desktop pet — feed, pet, and play with yarn! |
 
 ## Visualizations 🌈
 
@@ -76,6 +83,9 @@ Fire up your terminal and try them! Each app has built-in controls — press `q`
 🧮 calculator   — Type math, `plot sin(x)` for graphs
 📊 git-stats    — Generates HTML report automatically
 🎨 ascii-art    — `python3 ascii_art.py photo.jpg`
+🎮 game2048     — Arrow keys to slide and merge tiles
+🎯 minesweeper  — Arrows + Enter:Reveal F:Flag C:Chord
+🐱 catpet       — P:Pet F:Feed Y:Yarn SPACE:Jump
 ```
 
 ## License

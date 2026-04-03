@@ -3,113 +3,77 @@
 Rotating 3D ASCII Earth Globe with recognizable continents.
 Controls: q=quit, +/-=speed, c=toggle color
 
-Uses a hand-crafted bitmap world map at 4-degree resolution
-for fast land/ocean lookups with proper 3D sphere projection,
-Y-axis rotation, directional lighting, and color support.
+Features:
+  - Proper 3D sphere with orthographic projection
+  - Continent outlines from bitmap world map
+  - Directional lighting with depth shading
+  - Color support (blue ocean, green land, white poles)
+  - Latitude/longitude grid lines
+  - Smooth animation with curses (~24 fps target)
 """
 
 import curses
 import math
 import time
+import zlib
+import base64
 
 # ---------------------------------------------------------------------------
-# World map at ~4 degree resolution.
-# 90 columns (lon -180..+176 step 4) x 45 rows (lat +88..-88 step 4).
-# '#' = land, ' ' = ocean.
-# Based on simplified Natural Earth coastlines.
-# Each row is padded/trimmed to exactly 90 characters.
-# Row 0 = lat +88, row 44 = lat -88.
-# Col 0 = lon -180, col 89 = lon +176.
+# World map: 90x45 bitmap. Compressed via zlib+base64.
+# 90 cols = lon -180..+176 (step 4), 45 rows = lat +88..-88 (step 4).
+# Decoded as flat bytes: grid[row * 90 + col] == 1 means land.
 # ---------------------------------------------------------------------------
 
-_MAP = [
-# col: 0    5    10   15   20   25   30   35   40   45   50   55   60   65   70   75   80   85  89
-# lon:-180      -160      -140      -120      -100       -80       -60       -40       -20        0        20        40        60        80       100       120       140       160   176
-    "                                                                                          ",  # +88 (Arctic)
-    "                                                                                          ",  # +84
-    "                                              #####                                       ",  # +80 (Arctic Canada/Greenland)
-    "            ###                               ########                           ####     ",  # +76
-    "           #####                              ##########                     ##########   ",  # +72
-    "          #######         ##                  ###########   #           ###############   ",  # +68
-    "         #########       #####               ############  ###       #################    ",  # +64
-    "        ###########     ########             ############# #####   ####################   ",  # +60
-    "        ###########    ###########           ################### ######################   ",  # +56
-    "        ############   ############           ##########################################  ",  # +52
-    "        #############  #############          #########################################   ",  # +48
-    "         ############# ##############          ########################################   ",  # +44
-    "          ############ ##############          #######################################    ",  # +40
-    "           ########### ##############   #       #####################################    ",  # +36
-    "           ########### ###############  ##      ####################################     ",  # +32
-    "            ########## ###############  ###      ##################################      ",  # +28
-    "             ######### ###############  ####      ################################       ",  # +24
-    "              ######## ##############   #####     ################################       ",  # +20
-    "                       ####     #####   ######    #######  #########  ####               ",  # +16
-    "                        ##       ####   #######   ######    ######    ####               ",  # +12
-    "                         #        ##     #######  ######    #####     ##  #              ",  #  +8
-    "                                   #      ###### ######              ##  ###             ",  #  +4
-    "                                   #       #########                 ## ####             ",  #   0
-    "                                    #       ########                 ######              ",  #  -4
-    "                                    ##       #######                 #####               ",  #  -8
-    "                                    ###       ######                 ####       #        ",  # -12
-    "                                     ###       #####                 ###       ##        ",  # -16
-    "                                      ####      #####               ###      ###         ",  # -20
-    "                                       ####      #####             ###      ####         ",  # -24
-    "                                        ####      #####           ###     ######         ",  # -28
-    "                                        ####       #####         ###     #######         ",  # -32
-    "                                         ####       #####       ##    #########          ",  # -36
-    "                                          ###        ####      ##  ##########            ",  # -40
-    "                                           ##         ##      ########                   ",  # -44
-    "                                            #                ######                      ",  # -48
-    "                                            #              #####                         ",  # -52
-    "                                                          ###                            ",  # -56
-    "                                                                                         ",  # -60
-    "                                                                                         ",  # -64
-    "                                                                                         ",  # -68
-    "                                                                                         ",  # -72
-    "                                                                                         ",  # -76
-    "                                                                                         ",  # -80
-    "                                                                                         ",  # -84
-    "                                                                                         ",  # -88
-]
+_MAP_B64 = (
+    "eNrtlsEOxCAIROH/f7qHzVpRwJlWt3HTubSp+DRlUESek360DVlPxSOOoCATrEoE"
+    "U+FKyA0vK5rRNWQhsUOyyRxP7meOyNAyQyMFDmzpPSF1aeJtl1ySk1YGSa7STZM"
+    "Fc3dazeU1J+scskOAqdKXRf6nKLIhBN/rHTQLzSILS25pI/LXak+Tq1zGZ745Dy/d"
+    "U9F5F1nqLrmPX0b2qwAm57uGKuYPybKOzPRTYDeHkvX35MqkZJPZPOeRsalL+vFt"
+    "ya9ebaYDf5AFKA=="
+)
+_MAP_W, _MAP_H = 90, 45
+_MAP_LAT_STEP, _MAP_LON_STEP = 4, 4
+_MAP_LAT_MAX = 88
 
-MAP_ROWS = len(_MAP)   # 45
-MAP_COLS = 90
-MAP_LAT_STEP = 4
-MAP_LON_STEP = 4
-MAP_LAT_MAX = 88
+# Decode at import time
+_MAP_DATA = zlib.decompress(base64.b64decode(_MAP_B64))
 
 
 def is_land(lat, lon):
-    """Check if (lat, lon) is on land using the bitmap."""
-    # Clamp
-    if lat > MAP_LAT_MAX:
-        lat = MAP_LAT_MAX
-    if lat < -MAP_LAT_MAX:
-        lat = -MAP_LAT_MAX
-    # Wrap longitude
-    while lon > 180:
-        lon -= 360
-    while lon < -180:
-        lon += 360
+    """Check if (lat, lon) falls on land in the world bitmap."""
+    if lat > _MAP_LAT_MAX:
+        lat = _MAP_LAT_MAX
+    elif lat < -_MAP_LAT_MAX:
+        lat = -_MAP_LAT_MAX
+    if lon > 180:
+        lon -= 360 * ((lon + 180) // 360)
+    elif lon < -180:
+        lon += 360 * ((-lon + 180) // 360)
 
-    row = int((MAP_LAT_MAX - lat) / MAP_LAT_STEP + 0.5)
-    col = int((lon + 180) / MAP_LON_STEP + 0.5)
+    row = int((_MAP_LAT_MAX - lat) / _MAP_LAT_STEP + 0.5)
+    col = int((lon + 180) / _MAP_LON_STEP + 0.5)
 
-    row = max(0, min(MAP_ROWS - 1, row))
-    col = max(0, min(MAP_COLS - 1, col))
+    if row < 0:
+        row = 0
+    elif row >= _MAP_H:
+        row = _MAP_H - 1
+    if col < 0:
+        col = 0
+    elif col >= _MAP_W:
+        col = _MAP_W - 1
 
-    if row < len(_MAP) and col < len(_MAP[row]):
-        return _MAP[row][col] == '#'
-    return False
+    return _MAP_DATA[row * _MAP_W + col] == 1
 
 
 # ---------------------------------------------------------------------------
-# Rendering constants
+# Rendering
 # ---------------------------------------------------------------------------
 
-SHADE_OCEAN = [' ', ' ', '.', '~', '~', '-', '=']
-SHADE_LAND  = [' ', ' ', '.', ':', 'o', '#', '@']
+# Shading chars from dark (index 0) to bright (index 6)
+SHADE_OCEAN = (' ', ' ', '.', '~', '~', '-', '=')
+SHADE_LAND  = (' ', ' ', '.', ':', 'o', '#', '@')
 
+# Color pair IDs
 C_OCEAN      = 1
 C_LAND       = 2
 C_POLE       = 3
@@ -138,19 +102,29 @@ def render_globe(stdscr):
     setup_colors()
 
     rotation = 0.0
-    speed = 0.04
+    speed = 0.04          # radians per frame
     color_on = True
     target_fps = 24
     frame_dt = 1.0 / target_fps
 
-    # Light direction (upper-right, slightly in front) -- normalized
-    lx, ly, lz = 0.55, -0.35, -0.75
-    lm = math.sqrt(lx*lx + ly*ly + lz*lz)
-    lx /= lm; ly /= lm; lz /= lm
+    # Light direction (upper-right, in front of sphere) -- normalized
+    lx, ly, lz = 0.6, -0.3, -0.7
+    lm = math.sqrt(lx * lx + ly * ly + lz * lz)
+    lx /= lm
+    ly /= lm
+    lz /= lm
 
-    # Cache sphere pixel geometry per terminal size
+    # Sphere pixel geometry (rebuilt on terminal resize)
     cached_w = cached_h = -1
-    sphere_map = None
+    sphere_map = None  # [(screen_y, screen_x, norm_x, norm_y, norm_z), ...]
+
+    # Precompute degrees conversion factor
+    _RAD2DEG = 180.0 / math.pi
+    _asin = math.asin
+    _atan2 = math.atan2
+    _sqrt = math.sqrt
+    _cos = math.cos
+    _sin = math.sin
 
     while True:
         t0 = time.monotonic()
@@ -160,7 +134,7 @@ def render_globe(stdscr):
         except Exception:
             break
 
-        draw_h = max_y - 1  # leave last row for status
+        draw_h = max_y - 1  # reserve last row for status bar
         draw_w = max_x
 
         if draw_h < 6 or draw_w < 12:
@@ -171,22 +145,23 @@ def render_globe(stdscr):
                 pass
             stdscr.refresh()
             time.sleep(0.2)
-            k = stdscr.getch()
-            if k == ord('q'):
+            if stdscr.getch() == ord('q'):
                 return
             continue
 
-        # Rebuild sphere map on terminal resize
+        # Rebuild sphere pixel map on terminal resize
         if draw_w != cached_w or draw_h != cached_h:
             cached_w = draw_w
             cached_h = draw_h
-            # Characters are ~2x taller than wide
-            aspect = 2.1
-            ry = draw_h / 2.0 - 1
-            rx = ry * aspect
+
+            # Terminal chars are roughly 2x taller than wide
+            char_aspect = 2.1
+            ry = draw_h / 2.0 - 1.0
+            rx = ry * char_aspect
             if rx > draw_w / 2.0 - 2:
                 rx = draw_w / 2.0 - 2
-                ry = rx / aspect
+                ry = rx / char_aspect
+
             cx = draw_w / 2.0
             cy = draw_h / 2.0
 
@@ -197,29 +172,34 @@ def render_globe(stdscr):
                     ny = (sy - cy) / ry
                     d2 = nx * nx + ny * ny
                     if d2 <= 1.0:
-                        nz = math.sqrt(1.0 - d2)
+                        nz = _sqrt(1.0 - d2)
                         sphere_map.append((sy, sx, nx, ny, nz))
 
-        cos_a = math.cos(rotation)
-        sin_a = math.sin(rotation)
+        cos_a = _cos(rotation)
+        sin_a = _sin(rotation)
 
         stdscr.erase()
 
         for sy, sx, nx, ny, nz in sphere_map:
-            # Rotate point around Y axis
+            # Rotate around Y axis
             rx_ = nx * cos_a + nz * sin_a
             rz_ = -nx * sin_a + nz * cos_a
-            ry_ = ny
 
-            # Convert 3D point to lat/lon
-            lat = math.degrees(math.asin(max(-1.0, min(1.0, -ry_))))
-            lon = math.degrees(math.atan2(rx_, rz_))
+            # Convert to geographic coordinates
+            clamped_ny = ny if -1.0 <= ny <= 1.0 else max(-1.0, min(1.0, ny))
+            lat = -_asin(clamped_ny) * _RAD2DEG
+            lon = _atan2(rx_, rz_) * _RAD2DEG
 
-            # Compute lighting (dot product in view space)
+            # Directional lighting (computed in view space)
             dot = nx * lx + ny * ly + nz * lz
-            brightness = max(0.0, min(1.0, dot))
-            shade = int(brightness * 6.0)
-            shade = max(0, min(6, shade))
+            if dot < 0.0:
+                shade = 0
+            else:
+                if dot > 1.0:
+                    dot = 1.0
+                shade = int(dot * 6.0)
+                if shade > 6:
+                    shade = 6
 
             land = is_land(lat, lon)
             pole = abs(lat) > 72
@@ -232,24 +212,22 @@ def render_globe(stdscr):
                 if lat_m < 3.0 or lat_m > 27.0 or lon_m < 3.0 or lon_m > 27.0:
                     on_grid = True
 
-            # Choose character
+            # Character
             if shade == 0:
                 ch = ' '
-            elif pole:
-                ch = SHADE_LAND[shade]
-            elif land:
+            elif land or pole:
                 ch = SHADE_LAND[shade]
             else:
                 ch = SHADE_OCEAN[shade]
                 if on_grid and shade >= 3:
                     ch = '.'
 
-            # Choose color
+            # Color attribute
             attr = 0
             if color_on:
                 if pole:
                     attr = curses.color_pair(C_POLE)
-                    if brightness > 0.6:
+                    if dot > 0.6:
                         attr |= curses.A_BOLD
                 elif land:
                     if shade <= 2:
@@ -288,7 +266,7 @@ def render_globe(stdscr):
         stdscr.refresh()
         rotation += speed
 
-        # Handle input
+        # Input handling
         k = stdscr.getch()
         while k != -1:
             if k in (ord('q'), ord('Q')):
