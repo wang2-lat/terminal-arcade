@@ -1,6 +1,6 @@
 # Terminal Arcade 🕹️
 
-**18 stunning terminal applications** — games, visualizations, and tools, all in pure Python with zero external dependencies (except Pillow for ASCII art).
+**23 stunning terminal applications** — games, visualizations, and tools, all in pure Python with zero external dependencies (except Pillow for ASCII art).
 
 ```
 pip install terminal-arcade
@@ -20,6 +20,7 @@ Every app runs entirely in your terminal using `curses`. No GUI, no browser, jus
 | **2048** | `game2048` | Classic number-merging puzzle with colorful tiles and high score tracking |
 | **Minesweeper** | `minesweeper` | Full minesweeper with 3 difficulties, flagging, and chord reveal |
 | **Cat Pet** | `catpet` | Adorable ASCII cat desktop pet — feed, pet, and play with yarn! |
+| **Pong** | `pong` | Classic Pong vs AI with 3 difficulty levels |
 
 ## Visualizations 🌈
 
@@ -31,6 +32,9 @@ Every app runs entirely in your terminal using `curses`. No GUI, no browser, jus
 | **Particles** | `particles` | Particle effects engine — fire, fireworks, rain, snow, matrix, galaxy |
 | **Music Visualizer** | `music-viz` | Audio spectrum animation with bars, mirror, wave, and circle modes |
 | **Game of Life** | `life` | Conway's Game of Life with presets, age coloring, and speed control |
+| **Aquarium** | `aquarium` | Peaceful ASCII fish tank with fish, seaweed, bubbles, and crabs |
+| **Forest** | `forest` | Procedural ASCII forest with day/night cycle and weather effects |
+| **Clock** | `clock` | Large ASCII digit clock with analog mode and 6 color themes |
 
 ## Tools 🛠️
 
@@ -86,6 +90,10 @@ Fire up your terminal and try them! Each app has built-in controls — press `q`
 🎮 game2048     — Arrow keys to slide and merge tiles
 🎯 minesweeper  — Arrows + Enter:Reveal F:Flag C:Chord
 🐱 catpet       — P:Pet F:Feed Y:Yarn SPACE:Jump
+🏓 pong         — W/S or ↑/↓ to move paddle vs AI
+🐚 aquarium     — F:Add fish B:Bubbles, sit back and relax
+🌲 forest       — N:New scene W:Weather +/-:Time speed
+⌚ clock        — T:Theme S:Seconds A:Analog D:Date
 ```
 
 ## License

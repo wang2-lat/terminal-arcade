@@ -25,11 +25,11 @@ import base64
 # ---------------------------------------------------------------------------
 
 _MAP_B64 = (
-    "eNrtlsEOxCAIROH/f7qHzVpRwJlWt3HTubSp+DRlUESek360DVlPxSOOoCATrEoE"
-    "U+FKyA0vK5rRNWQhsUOyyRxP7meOyNAyQyMFDmzpPSF1aeJtl1ySk1YGSa7STZM"
-    "Fc3dazeU1J+scskOAqdKXRf6nKLIhBN/rHTQLzSILS25pI/LXak+Tq1zGZ745Dy/d"
-    "U9F5F1nqLrmPX0b2qwAm57uGKuYPybKOzPRTYDeHkvX35MqkZJPZPOeRsalL+vFt"
-    "ya9ebaYDf5AFKA=="
+    "eNrtlsEOxCAIROH/f7qHplaRQcbU7e7GuTS15GlgsIi8Jz31M2S9hb84SgeWYE1q"
+    "TG2+EmQYXna0ZOHIfXxPvt6VzAgkN8WYIdt8QzKT8aE/gAMtvSeELg287ZJLccLO"
+    "IMl1mVmyJOyKbwGTs5isz5AdQpoqti1wnifIDQGs1ycwGz1FFpZsKSPyZbW3ydGl"
+    "4TQG9TMDNY9W/S7gyX38MrLfBWlyfOpUxySuvK8mO9mQdWRmnkpOc1myfp5cmZQc"
+    "Ms1zwWwsW1tbf6oDUfMFCg=="
 )
 _MAP_W, _MAP_H = 90, 45
 _MAP_LAT_STEP, _MAP_LON_STEP = 4, 4
