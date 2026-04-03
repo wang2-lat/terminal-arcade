@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminal Arcade - Retro Games in Your Terminal</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: #1a1f35;
+    --border: #2a3050;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --accent-cyan: #22d3ee;
+    --accent-green: #4ade80;
+    --accent-purple: #a78bfa;
+    --accent-pink: #f472b6;
+    --accent-orange: #fb923c;
+    --accent-yellow: #facc15;
+    --glow-cyan: 0 0 20px rgba(34,211,238,0.3);
+    --glow-green: 0 0 20px rgba(74,222,128,0.3);
+    --glow-purple: 0 0 20px rgba(167,139,250,0.3);
+    --glow-pink: 0 0 20px rgba(244,114,182,0.3);
+    --glow-orange: 0 0 20px rgba(251,146,60,0.3);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Courier New', 'Menlo', 'Monaco', monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ===== MATRIX RAIN BACKGROUND ===== */
+  #matrix-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.06;
+    pointer-events: none;
+  }
+
+  /* ===== SCANLINES OVERLAY ===== */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ===== LAYOUT WRAPPER ===== */
+  .content-wrapper {
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ===== NAVIGATION ===== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: box-shadow 0.3s;
+  }
+
+  nav.scrolled {
+    box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  }
+
+  .nav-logo {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .nav-logo span { color: var(--accent-green); }
+
+  .nav-links { display: flex; gap: 1.5rem; list-style: none; }
+
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+    position: relative;
+  }
+
+  .nav-links a:hover { color: var(--accent-cyan); }
+
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -4px; left: 0;
+    width: 0; height: 2px;
+    background: var(--accent-cyan);
+    transition: width 0.3s;
+  }
+
+  .nav-links a:hover::after { width: 100%; }
+
+  /* ===== HERO SECTION ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--accent-green);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--accent-green);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    animation: fadeInDown 0.8s ease-out;
+    background: rgba(74, 222, 128, 0.05);
+  }
+
+  .hero-badge .dot {
+    width: 6px; height: 6px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  .hero-title {
+    font-size: clamp(2.5rem, 8vw, 6rem);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    animation: fadeInUp 0.8s ease-out 0.2s both;
+    letter-spacing: -1px;
+  }
+
+  .hero-title .line1 {
+    display: block;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(34,211,238,0.3));
+  }
+
+  .hero-title .line2 {
+    display: block;
+    background: linear-gradient(135deg, var(--accent-pink), var(--accent-orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(244,114,182,0.3));
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--text-secondary);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    animation: fadeInUp 0.8s ease-out 0.4s both;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeInUp 0.8s ease-out 0.6s both;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.8rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-cyan), #06b6d4);
+    color: var(--bg-primary);
+    box-shadow: 0 4px 15px rgba(34,211,238,0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(34,211,238,0.4);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    transform: translateY(-2px);
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 3rem;
+    margin-top: 4rem;
+    animation: fadeInUp 0.8s ease-out 0.8s both;
+  }
+
+  .stat { text-align: center; }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--accent-cyan);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 0.25rem;
+  }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: bounce 2s infinite;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+  }
+
+  /* ===== SECTION BASE ===== */
+  section {
+    padding: 5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 800;
+    margin-bottom: 1rem;
+  }
+
+  .section-desc {
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ===== CATEGORY FILTERS ===== */
+  .filters {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: rgba(34,211,238,0.08);
+  }
+
+  /* ===== GAME CARDS GRID ===== */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .card:hover {
+    transform: translateY(-6px);
+    border-color: var(--card-accent);
+    box-shadow: var(--card-glow);
+  }
+
+  .card:hover::before { opacity: 1; }
+
+  .card-icon {
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+    display: inline-block;
+    transition: transform 0.3s;
+  }
+
+  .card:hover .card-icon { transform: scale(1.15) rotate(-5deg); }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .card-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .card-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .badge-game {
+    background: rgba(34,211,238,0.12);
+    color: var(--accent-cyan);
+    border: 1px solid rgba(34,211,238,0.25);
+  }
+
+  .badge-viz {
+    background: rgba(167,139,250,0.12);
+    color: var(--accent-purple);
+    border: 1px solid rgba(167,139,250,0.25);
+  }
+
+  .badge-tool {
+    background: rgba(74,222,128,0.12);
+    color: var(--accent-green);
+    border: 1px solid rgba(74,222,128,0.25);
+  }
+
+  .card-desc {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .card-tags {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .card-tag {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    background: rgba(255,255,255,0.04);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== TERMINAL DEMO ===== */
+  .terminal-section {
+    padding: 5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .terminal-window {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    max-width: 800px;
+    margin: 0 auto;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s;
+  }
+
+  .terminal-window.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .terminal-bar {
+    background: #161b22;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+
+  .terminal-dot.red { background: #ff5f57; }
+  .terminal-dot.yellow { background: #febc2e; }
+  .terminal-dot.green { background: #28c840; }
+
+  .terminal-title {
+    flex: 1;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+  }
+
+  .terminal-body {
+    padding: 1.5rem;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    min-height: 320px;
+  }
+
+  .terminal-line {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .terminal-line.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .t-prompt { color: var(--accent-green); }
+  .t-cmd { color: var(--accent-cyan); }
+  .t-output { color: var(--text-secondary); }
+  .t-highlight { color: var(--accent-yellow); }
+  .t-success { color: var(--accent-green); }
+  .t-art { color: var(--accent-purple); }
+
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px; height: 16px;
+    background: var(--accent-green);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+
+  /* ===== INSTALL SECTION ===== */
+  .install-section {
+    padding: 5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .install-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .install-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s;
+  }
+
+  .install-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .install-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .step-number {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(34,211,238,0.12);
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .step-label {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+  }
+
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    position: relative;
+    overflow-x: auto;
+  }
+
+  .code-block code {
+    color: var(--text-secondary);
+  }
+
+  .code-comment { color: #6a737d; }
+  .code-cmd { color: var(--accent-cyan); }
+  .code-flag { color: var(--accent-purple); }
+  .code-url { color: var(--accent-orange); }
+
+  .copy-btn {
+    position: absolute;
+    top: 0.6rem; right: 0.6rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    padding: 0.3rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .copy-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+  }
+
+  /* ===== FEATURES STRIP ===== */
+  .features-strip {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+    padding: 3rem 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+
+  .feature-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .feature-icon {
+    font-size: 1.5rem;
+  }
+
+  .feature-text {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  .feature-text strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+  }
+
+  .feature-text span {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+  }
+
+  /* ===== TECH BADGES ===== */
+  .tech-badges {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .tech-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    background: var(--bg-card);
+    transition: all 0.3s;
+  }
+
+  .tech-badge:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    transform: translateY(-2px);
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    text-align: center;
+    padding: 4rem 2rem 3rem;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  .footer-art {
+    color: var(--accent-purple);
+    font-size: 0.65rem;
+    line-height: 1.2;
+    margin-bottom: 2rem;
+    opacity: 0.5;
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .footer-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.3s;
+  }
+
+  .footer-links a:hover { color: var(--accent-cyan); }
+
+  .footer-copy {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    opacity: 0.6;
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+    40% { transform: translateX(-50%) translateY(-10px); }
+    60% { transform: translateX(-50%) translateY(-5px); }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    nav { padding: 0.75rem 1rem; }
+    .nav-links { display: none; }
+    .hero-stats { gap: 1.5rem; }
+    .stat-number { font-size: 1.5rem; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .features-strip { gap: 1.5rem; }
+    .install-grid { grid-template-columns: 1fr; }
+    section, .terminal-section, .install-section { padding: 3rem 1rem; }
+  }
+
+  @media (max-width: 480px) {
+    .hero-title { font-size: 2.2rem; }
+    .hero-actions { flex-direction: column; align-items: center; }
+    .hero-stats { flex-direction: column; gap: 1rem; }
+    .filters { gap: 0.4rem; }
+    .filter-btn { padding: 0.4rem 0.8rem; font-size: 0.7rem; }
+  }
+
+  .nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .nav-toggle { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Matrix Rain Canvas -->
+<canvas id="matrix-canvas"></canvas>
+
+<div class="content-wrapper">
+
+  <!-- Navigation -->
+  <nav id="navbar">
+    <a href="#" class="nav-logo">&gt;_ Terminal<span>Arcade</span></a>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#games">Games</a></li>
+      <li><a href="#demo">Demo</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/wang2-lat/terminal-arcade" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Open Source
+    </div>
+
+    <h1 class="hero-title">
+      <span class="line1">Terminal</span>
+      <span class="line2">Arcade</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      15 retro games, mesmerizing visualizations, and powerful tools
+      -- all running inside your terminal. No GUI required.
+    </p>
+
+    <div class="hero-actions">
+      <a href="#install" class="btn btn-primary">
+        &gt;_ Get Started
+      </a>
+      <a href="https://github.com/wang2-lat/terminal-arcade" class="btn btn-secondary" target="_blank" rel="noopener">
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-number">15</div>
+        <div class="stat-label">Programs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">3</div>
+        <div class="stat-label">Categories</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Dependencies</div>
+      </div>
+    </div>
+
+    <div class="scroll-indicator">&#8964;</div>
+  </section>
+
+  <!-- Games Grid Section -->
+  <section id="games">
+    <div class="section-header">
+      <span class="section-label">// Collection</span>
+      <h2 class="section-title">Choose Your Adventure</h2>
+      <p class="section-desc">
+        From classic arcade games to stunning visualizations, every program runs entirely in your terminal using Python and curses.
+      </p>
+    </div>
+
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-filter="all">All (15)</button>
+      <button class="filter-btn" data-filter="game">Games (5)</button>
+      <button class="filter-btn" data-filter="viz">Visualizations (6)</button>
+      <button class="filter-btn" data-filter="tool">Tools (4)</button>
+    </div>
+
+    <div class="cards-grid" id="cards-grid"></div>
+  </section>
+
+  <!-- Terminal Demo Section -->
+  <div class="terminal-section" id="demo">
+    <div class="section-header">
+      <span class="section-label">// Live Preview</span>
+      <h2 class="section-title">See It in Action</h2>
+      <p class="section-desc">
+        Watch Terminal Arcade come to life -- right here in a simulated terminal.
+      </p>
+    </div>
+
+    <div class="terminal-window" id="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+        <span class="terminal-title">terminal-arcade -- zsh -- 80x24</span>
+      </div>
+      <div class="terminal-body" id="terminal-body"></div>
+    </div>
+  </div>
+
+  <!-- Features Strip -->
+  <div class="features-strip" id="features">
+    <div class="feature-item">
+      <span class="feature-icon">&#127915;</span>
+      <div class="feature-text">
+        <strong>Pure Terminal</strong>
+        <span>No GUI, no browser needed</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">&#9889;</span>
+      <div class="feature-text">
+        <strong>Zero Config</strong>
+        <span>Clone, run, play</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">&#128640;</span>
+      <div class="feature-text">
+        <strong>Lightweight</strong>
+        <span>Python + curses only</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">&#127912;</span>
+      <div class="feature-text">
+        <strong>Beautiful</strong>
+        <span>Unicode + ANSI colors</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install Section -->
+  <div class="install-section" id="install">
+    <div class="section-header">
+      <span class="section-label">// Getting Started</span>
+      <h2 class="section-title">Up and Running in Seconds</h2>
+      <p class="section-desc">
+        No dependencies to install, no configuration to fiddle with. Just clone and go.
+      </p>
+    </div>
+
+    <div class="install-grid">
+      <div class="install-card">
+        <div class="install-step">
+          <div class="step-number">1</div>
+          <div class="step-label">Clone the Repo</div>
+        </div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="git clone https://github.com/wang2-lat/terminal-arcade.git&#10;cd terminal-arcade">COPY</button>
+          <code><span class="code-cmd">git clone</span> <span class="code-url">https://github.com/wang2-lat/terminal-arcade.git</span>
+<span class="code-cmd">cd</span> terminal-arcade</code>
+        </div>
+      </div>
+
+      <div class="install-card">
+        <div class="install-step">
+          <div class="step-number">2</div>
+          <div class="step-label">Run Any Program</div>
+        </div>
+        <div class="code-block">
+          <button class="copy-btn" data-copy="python snake.py">COPY</button>
+          <code><span class="code-comment"># Pick your favorite</span>
+<span class="code-cmd">python</span> snake.py
+<span class="code-cmd">python</span> tetris.py
+<span class="code-cmd">python</span> matrix.py</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Badges -->
+  <div class="tech-badges">
+    <span class="tech-badge">&#128013; Python 3</span>
+    <span class="tech-badge">&#9000; curses</span>
+    <span class="tech-badge">&#127912; Unicode Art</span>
+    <span class="tech-badge">&#128187; Terminal Native</span>
+    <span class="tech-badge">&#128039; Linux</span>
+    <span class="tech-badge">&#127822; macOS</span>
+    <span class="tech-badge">&#128295; Open Source</span>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <pre class="footer-art">
+    _____ _____ ____  __  __ ___ _   _    _    _          _    ____   ____    _    ____  _____
+   |_   _| ____|  _ \|  \/  |_ _| \ | |  / \  | |        / \  |  _ \ / ___|  / \  |  _ \| ____|
+     | | |  _| | |_) | |\/| || ||  \| | / _ \ | |       / _ \ | |_) | |     / _ \ | | | |  _|
+     | | | |___|  _ &lt;| |  | || || |\  |/ ___ \| |___   / ___ \|  _ &lt;| |___ / ___ \| |_| | |___
+     |_| |_____|_| \_\_|  |_|___|_| \_/_/   \_\_____| /_/   \_\_| \_\\____/_/   \_\____/|_____|
+    </pre>
+
+    <div class="footer-links">
+      <a href="https://github.com/wang2-lat/terminal-arcade" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/wang2-lat/terminal-arcade/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/wang2-lat" target="_blank" rel="noopener">Author</a>
+    </div>
+
+    <p class="footer-copy">
+      Built with Python + curses &mdash; wang2-lat &mdash; 2025
+    </p>
+  </footer>
+
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ===== GAME DATA ===== */
+  var games = [
+    { name: 'Snake', icon: '\uD83D\uDC0D', desc: 'Classic snake game with growing tail, speed levels, and wall-wrap mode. How long can you survive?', category: 'game', color: '#4ade80', glow: '0 0 25px rgba(74,222,128,0.25)', tags: ['arrow keys', 'highscore', 'classic'] },
+    { name: 'Tetris', icon: '\uD83E\uDDF1', desc: 'Full-featured Tetris with ghost pieces, hold queue, T-spins, and escalating difficulty.', category: 'game', color: '#22d3ee', glow: '0 0 25px rgba(34,211,238,0.25)', tags: ['rotation', 'lines', 'classic'] },
+    { name: 'Space Shooter', icon: '\uD83D\uDE80', desc: 'Dodge asteroids and blast alien waves in this fast-paced vertical scrolling shooter.', category: 'game', color: '#f472b6', glow: '0 0 25px rgba(244,114,182,0.25)', tags: ['action', 'waves', 'powerups'] },
+    { name: 'Blackjack', icon: '\uD83C\uDCCF', desc: 'Hit, stand, double down, or split. Full casino rules with card-counting friendly UI.', category: 'game', color: '#fb923c', glow: '0 0 25px rgba(251,146,60,0.25)', tags: ['cards', 'strategy', 'casino'] },
+    { name: 'Typing Test', icon: '\u2328\uFE0F', desc: 'Test your WPM with random passages. Real-time accuracy tracking and personal bests.', category: 'game', color: '#facc15', glow: '0 0 25px rgba(250,204,21,0.25)', tags: ['wpm', 'accuracy', 'practice'] },
+    { name: 'Matrix Rain', icon: '\uD83D\uDCA0', desc: 'The iconic green digital rain from The Matrix, rendered in glorious terminal characters.', category: 'viz', color: '#4ade80', glow: '0 0 25px rgba(74,222,128,0.25)', tags: ['ambient', 'screensaver', 'iconic'] },
+    { name: 'Spinning Globe', icon: '\uD83C\uDF0D', desc: 'A rotating 3D wireframe Earth rendered with ASCII characters. Mesmerizing and educational.', category: 'viz', color: '#22d3ee', glow: '0 0 25px rgba(34,211,238,0.25)', tags: ['3D', 'ASCII', 'animation'] },
+    { name: 'Fluid Sim', icon: '\uD83C\uDF0A', desc: 'Real-time Navier-Stokes fluid dynamics simulation. Push particles around with your cursor.', category: 'viz', color: '#818cf8', glow: '0 0 25px rgba(129,140,248,0.25)', tags: ['physics', 'interactive', 'simulation'] },
+    { name: 'Particles', icon: '\u2728', desc: 'Thousands of particles responding to gravity, wind, and mouse attraction in real time.', category: 'viz', color: '#a78bfa', glow: '0 0 25px rgba(167,139,250,0.25)', tags: ['physics', 'forces', 'beauty'] },
+    { name: 'Music Viz', icon: '\uD83C\uDFB5', desc: 'Audio spectrum analyzer that turns your music into dancing bar charts and waveforms.', category: 'viz', color: '#f472b6', glow: '0 0 25px rgba(244,114,182,0.25)', tags: ['audio', 'spectrum', 'bars'] },
+    { name: 'Game of Life', icon: '\uD83E\uDDEC', desc: "Conway's cellular automaton. Place cells, hit play, and watch complexity emerge from simplicity.", category: 'viz', color: '#2dd4bf', glow: '0 0 25px rgba(45,212,191,0.25)', tags: ['cellular', 'automaton', 'patterns'] },
+    { name: 'ASCII Art', icon: '\uD83D\uDDBC\uFE0F', desc: 'Convert any image to stunning ASCII art. Supports multiple character sets and output sizes.', category: 'tool', color: '#e2e8f0', glow: '0 0 25px rgba(226,232,240,0.2)', tags: ['converter', 'images', 'creative'] },
+    { name: 'Maze Solver', icon: '\uD83E\uDDE9', desc: 'Generate random mazes and watch BFS, DFS, and A* algorithms race to solve them.', category: 'tool', color: '#fb923c', glow: '0 0 25px rgba(251,146,60,0.25)', tags: ['algorithms', 'pathfinding', 'visual'] },
+    { name: 'Calculator', icon: '\uD83D\uDDA9', desc: 'Scientific calculator with expression history, variable storage, and function graphing.', category: 'tool', color: '#22d3ee', glow: '0 0 25px rgba(34,211,238,0.25)', tags: ['math', 'scientific', 'graphing'] },
+    { name: 'Git Stats', icon: '\uD83D\uDCCA', desc: 'Beautiful terminal dashboard for your Git repo: commit heatmap, contributor stats, and branch graph.', category: 'tool', color: '#4ade80', glow: '0 0 25px rgba(74,222,128,0.25)', tags: ['git', 'dashboard', 'analytics'] }
+  ];
+
+  var badgeClasses = { game: 'badge-game', viz: 'badge-viz', tool: 'badge-tool' };
+  var badgeLabels = { game: 'Game', viz: 'Visualization', tool: 'Tool' };
+
+  /* ===== RENDER CARDS (DOM API, no innerHTML) ===== */
+  var grid = document.getElementById('cards-grid');
+
+  function createCard(g, delay) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.setAttribute('data-category', g.category);
+    card.style.setProperty('--card-accent', g.color);
+    card.style.setProperty('--card-glow', g.glow);
+    card.style.transitionDelay = delay + 'ms';
+
+    var iconDiv = document.createElement('div');
+    iconDiv.className = 'card-icon';
+    iconDiv.textContent = g.icon;
+    card.appendChild(iconDiv);
+
+    var header = document.createElement('div');
+    header.className = 'card-header';
+
+    var nameDiv = document.createElement('div');
+    nameDiv.className = 'card-name';
+    nameDiv.textContent = g.name;
+    header.appendChild(nameDiv);
+
+    var badge = document.createElement('span');
+    badge.className = 'card-badge ' + badgeClasses[g.category];
+    badge.textContent = badgeLabels[g.category];
+    header.appendChild(badge);
+
+    card.appendChild(header);
+
+    var descDiv = document.createElement('div');
+    descDiv.className = 'card-desc';
+    descDiv.textContent = g.desc;
+    card.appendChild(descDiv);
+
+    var tagsDiv = document.createElement('div');
+    tagsDiv.className = 'card-tags';
+    g.tags.forEach(function(t) {
+      var tag = document.createElement('span');
+      tag.className = 'card-tag';
+      tag.textContent = t;
+      tagsDiv.appendChild(tag);
+    });
+    card.appendChild(tagsDiv);
+
+    return card;
+  }
+
+  function renderCards(filter) {
+    var filtered = filter === 'all' ? games : games.filter(function(g) { return g.category === filter; });
+
+    while (grid.firstChild) { grid.removeChild(grid.firstChild); }
+
+    filtered.forEach(function(g, i) {
+      grid.appendChild(createCard(g, i * 60));
+    });
+
+    requestAnimationFrame(function() {
+      var cards = document.querySelectorAll('.card');
+      for (var j = 0; j < cards.length; j++) {
+        cards[j].classList.add('visible');
+      }
+    });
+  }
+
+  renderCards('all');
+
+  /* ===== FILTER BUTTONS ===== */
+  document.getElementById('filters').addEventListener('click', function(e) {
+    var btn = e.target;
+    if (!btn.classList.contains('filter-btn')) return;
+    var all = document.querySelectorAll('.filter-btn');
+    for (var i = 0; i < all.length; i++) { all[i].classList.remove('active'); }
+    btn.classList.add('active');
+    renderCards(btn.getAttribute('data-filter'));
+  });
+
+  /* ===== TERMINAL DEMO (DOM API, no innerHTML) ===== */
+  var terminalData = [
+    { type: 'input', prompt: '~/ ', cmd: 'git clone https://github.com/wang2-lat/terminal-arcade.git' },
+    { type: 'output', text: "Cloning into 'terminal-arcade'..." },
+    { type: 'success', text: 'done. 15 programs ready to play.' },
+    { type: 'blank' },
+    { type: 'input', prompt: '~/terminal-arcade/ ', cmd: 'python snake.py' },
+    { type: 'blank' },
+    { type: 'art', text: '  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510' },
+    { type: 'art-score', art: '  \u2502  \u2588\u2588\u2588\u2593\u2593\u2592\u2591          \u2502  Score: ', val: '42' },
+    { type: 'art-score', art: '  \u2502         \u2591            \u2502  Level: ', val: '3' },
+    { type: 'art-score', art: '  \u2502         \u2591    \u25CF       \u2502  Speed: ', val: 'fast' },
+    { type: 'art', text: '  \u2502         \u2591\u2591\u2591\u2591        \u2502' },
+    { type: 'art', text: '  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518' },
+    { type: 'blank' },
+    { type: 'game-over' },
+    { type: 'blank' },
+    { type: 'input-cursor', prompt: '~/terminal-arcade/ ', cmd: 'python matrix.py' }
+  ];
+
+  var terminalBody = document.getElementById('terminal-body');
+  var terminalStarted = false;
+
+  function buildLine(data) {
+    var el = document.createElement('div');
+    el.className = 'terminal-line';
+
+    if (data.type === 'blank') {
+      el.textContent = '\u00A0';
+    } else if (data.type === 'input') {
+      var p = document.createElement('span');
+      p.className = 't-prompt';
+      p.textContent = data.prompt + '> ';
+      var c = document.createElement('span');
+      c.className = 't-cmd';
+      c.textContent = data.cmd;
+      el.appendChild(p);
+      el.appendChild(c);
+    } else if (data.type === 'input-cursor') {
+      var p2 = document.createElement('span');
+      p2.className = 't-prompt';
+      p2.textContent = data.prompt + '> ';
+      var c2 = document.createElement('span');
+      c2.className = 't-cmd';
+      c2.textContent = data.cmd;
+      var cur = document.createElement('span');
+      cur.className = 'terminal-cursor';
+      el.appendChild(p2);
+      el.appendChild(c2);
+      el.appendChild(document.createTextNode(' '));
+      el.appendChild(cur);
+    } else if (data.type === 'output') {
+      var o = document.createElement('span');
+      o.className = 't-output';
+      o.textContent = data.text;
+      el.appendChild(o);
+    } else if (data.type === 'success') {
+      var s = document.createElement('span');
+      s.className = 't-success';
+      s.textContent = data.text;
+      el.appendChild(s);
+    } else if (data.type === 'art') {
+      var a = document.createElement('span');
+      a.className = 't-art';
+      a.textContent = data.text;
+      el.appendChild(a);
+    } else if (data.type === 'art-score') {
+      var a2 = document.createElement('span');
+      a2.className = 't-art';
+      a2.textContent = data.art;
+      var h = document.createElement('span');
+      h.className = 't-highlight';
+      h.textContent = data.val;
+      el.appendChild(a2);
+      el.appendChild(h);
+    } else if (data.type === 'game-over') {
+      var go = document.createElement('span');
+      go.className = 't-success';
+      go.textContent = 'Game Over! ';
+      var go2 = document.createElement('span');
+      go2.className = 't-output';
+      go2.textContent = 'Final score: ';
+      var go3 = document.createElement('span');
+      go3.className = 't-highlight';
+      go3.textContent = '42';
+      var go4 = document.createElement('span');
+      go4.className = 't-output';
+      go4.textContent = '  |  New high score!';
+      el.appendChild(go);
+      el.appendChild(go2);
+      el.appendChild(go3);
+      el.appendChild(go4);
+    }
+
+    return el;
+  }
+
+  function animateTerminal() {
+    if (terminalStarted) return;
+    terminalStarted = true;
+    while (terminalBody.firstChild) { terminalBody.removeChild(terminalBody.firstChild); }
+
+    terminalData.forEach(function(data, i) {
+      var el = buildLine(data);
+      terminalBody.appendChild(el);
+      setTimeout(function() { el.classList.add('visible'); }, 200 + i * 180);
+    });
+  }
+
+  /* ===== MATRIX RAIN ===== */
+  var canvas = document.getElementById('matrix-canvas');
+  var ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  var matrixChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+-=[]{}|;:<>?/~';
+  var fontSize = 14;
+  var columns = Math.floor(canvas.width / fontSize);
+  var drops = [];
+  for (var ci = 0; ci < columns; ci++) { drops.push(1); }
+
+  function drawMatrix() {
+    ctx.fillStyle = 'rgba(10, 14, 26, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#22d3ee';
+    ctx.font = fontSize + 'px monospace';
+
+    for (var i = 0; i < drops.length; i++) {
+      var ch = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+      ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+
+  setInterval(drawMatrix, 50);
+
+  window.addEventListener('resize', function() {
+    columns = Math.floor(canvas.width / fontSize);
+    drops = [];
+    for (var ri = 0; ri < columns; ri++) { drops.push(1); }
+  });
+
+  /* ===== SCROLL OBSERVER ===== */
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        if (entry.target.id === 'terminal') {
+          animateTerminal();
+        }
+      }
+    });
+  }, { threshold: 0.15 });
+
+  var observed = document.querySelectorAll('.terminal-window, .install-card, .feature-item');
+  for (var oi = 0; oi < observed.length; oi++) { observer.observe(observed[oi]); }
+
+  /* ===== NAV SCROLL EFFECT ===== */
+  var navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', function() {
+    if (window.scrollY > 50) {
+      navbar.classList.add('scrolled');
+    } else {
+      navbar.classList.remove('scrolled');
+    }
+  });
+
+  /* ===== COPY BUTTONS ===== */
+  document.addEventListener('click', function(e) {
+    var btn = e.target;
+    if (!btn.classList.contains('copy-btn')) return;
+    var text = btn.getAttribute('data-copy') || btn.parentElement.querySelector('code').textContent;
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = 'COPIED!';
+      btn.style.color = 'var(--accent-green)';
+      btn.style.borderColor = 'var(--accent-green)';
+      setTimeout(function() {
+        btn.textContent = 'COPY';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    });
+  });
+
+  /* ===== MOBILE NAV TOGGLE ===== */
+  var navToggle = document.getElementById('nav-toggle');
+  var navLinks = document.getElementById('nav-links');
+  var navOpen = false;
+
+  if (navToggle) {
+    navToggle.addEventListener('click', function() {
+      navOpen = !navOpen;
+      if (navOpen) {
+        navLinks.style.display = 'flex';
+        navLinks.style.position = 'absolute';
+        navLinks.style.top = '100%';
+        navLinks.style.left = '0';
+        navLinks.style.right = '0';
+        navLinks.style.flexDirection = 'column';
+        navLinks.style.background = 'rgba(10,14,26,0.95)';
+        navLinks.style.padding = '1rem';
+        navLinks.style.borderBottom = '1px solid var(--border)';
+        navLinks.style.gap = '1rem';
+      } else {
+        navLinks.style.cssText = '';
+      }
+    });
+  }
+
+})();
+</script>
+</body>
+</html>
